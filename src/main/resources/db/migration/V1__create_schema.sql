@@ -1,4 +1,4 @@
-REATE TABLE venues (
+CREATE TABLE venues (
     id          BIGSERIAL PRIMARY KEY,
     code        VARCHAR(50)  NOT NULL,
     name        VARCHAR(150) NOT NULL,
@@ -19,6 +19,7 @@ CREATE TABLE artists (
                          stage_name  VARCHAR(150) NOT NULL,
                          genre       VARCHAR(100) NOT NULL,
                          country     VARCHAR(100) NOT NULL,
+                         active BOOLEAN NOT NULL DEFAULT TRUE,
 
                          CONSTRAINT uq_artists_stage_name UNIQUE (stage_name)
 );
@@ -28,7 +29,6 @@ CREATE TABLE users (
                        id              BIGSERIAL PRIMARY KEY,
                        username        VARCHAR(50)  NOT NULL,
                        email           VARCHAR(150) NOT NULL,
-                       password_hash   VARCHAR(255) NOT NULL,
                        active          BOOLEAN      NOT NULL DEFAULT TRUE,
 
                        CONSTRAINT uq_users_username UNIQUE (username),
@@ -38,7 +38,9 @@ CREATE TABLE users (
 
 CREATE TABLE user_profiles (
                                id          BIGSERIAL PRIMARY KEY,
-                               full_name   VARCHAR(150) NOT NULL,
+                               first_name  VARCHAR(100) NOT NULL,
+                               last_name   VARCHAR(100) NOT NULL,
+                               city        VARCHAR(100),
                                phone       VARCHAR(30)  NOT NULL,
                                birth_date  DATE         NOT NULL,
                                user_id     BIGINT       NOT NULL,
@@ -57,12 +59,14 @@ CREATE TABLE events (
                         status       VARCHAR(30)  NOT NULL,
                         event_date   TIMESTAMP    NOT NULL,
                         venue_id     BIGINT       NOT NULL,
+                        description  VARCHAR(1000),
+                        minimum_age  INTEGER NOT NULL DEFAULT 0,
 
                         CONSTRAINT fk_events_venue
                             FOREIGN KEY (venue_id) REFERENCES venues (id),
                         CONSTRAINT uq_events_event_code UNIQUE (event_code),
-                        CONSTRAINT ck_events_category CHECK (category IN ('CONCERT', 'FESTIVAL', 'CONFERENCE', 'SPORTS', 'THEATER')),
-                        CONSTRAINT ck_events_status CHECK (status IN ('DRAFT', 'PUBLISHED', 'CANCELLED', 'COMPLETED'))
+                        CONSTRAINT ck_events_category CHECK (category IN ('MUSIC','SPORTS','TECHNOLOGY','EDUCATION','CULTURE','ENTERTAINMENT')),
+                        CONSTRAINT ck_events_status CHECK (status IN ('DRAFT','PUBLISHED','SOLD_OUT','CANCELLED','FINISHED'))
 );
 
 CREATE INDEX idx_events_status ON events (status);
@@ -81,23 +85,21 @@ CREATE TABLE event_artists (
 );
 
 CREATE TABLE tickets (
-                         id             BIGSERIAL PRIMARY KEY,
-                         ticket_code    VARCHAR(50)     NOT NULL,
-                         type           VARCHAR(30)     NOT NULL,
-                         status         VARCHAR(30)     NOT NULL,
-                         price          NUMERIC(10, 2)  NOT NULL,
-                         purchase_date  TIMESTAMP       NOT NULL,
-                         user_id        BIGINT          NOT NULL,
-                         event_id       BIGINT          NOT NULL,
+    id             BIGSERIAL PRIMARY KEY,
+    ticket_code    VARCHAR(50)     NOT NULL,
+    type           VARCHAR(30)     NOT NULL,
+    status         VARCHAR(30)     NOT NULL,
+    price          NUMERIC(10, 2)  NOT NULL,
+    purchase_date  TIMESTAMP       NOT NULL,
+    user_id        BIGINT          NOT NULL,
+    event_id       BIGINT          NOT NULL,
 
-                         CONSTRAINT fk_tickets_user
-                             FOREIGN KEY (user_id) REFERENCES users (id),
-                         CONSTRAINT fk_tickets_event
-                             FOREIGN KEY (event_id) REFERENCES events (id),
-                         CONSTRAINT uq_tickets_ticket_code UNIQUE (ticket_code),
-                         CONSTRAINT ck_tickets_price_non_negative CHECK (price >= 0),
-                         CONSTRAINT ck_tickets_type CHECK (type IN ('GENERAL', 'VIP', 'BACKSTAGE')),
-                         CONSTRAINT ck_tickets_status CHECK (status IN ('RESERVED', 'PAID', 'CANCELLED', 'USED'))
+    CONSTRAINT fk_tickets_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT fk_tickets_event FOREIGN KEY (event_id) REFERENCES events (id),
+    CONSTRAINT uq_tickets_ticket_code UNIQUE (ticket_code),
+    CONSTRAINT ck_tickets_price_non_negative CHECK (price >= 0),
+    CONSTRAINT ck_tickets_type CHECK (type IN ('GENERAL', 'VIP', 'BACKSTAGE', 'STUDENT')),
+    CONSTRAINT ck_tickets_status CHECK (status IN ('RESERVED', 'PAID', 'CANCELLED', 'USED'))
 );
 
 CREATE INDEX idx_tickets_user_id ON tickets (user_id);

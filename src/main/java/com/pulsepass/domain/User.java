@@ -18,9 +18,6 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
-    private String passwordHash;
-
     @Column(nullable = false)
     private boolean active;
 
@@ -34,15 +31,14 @@ public class User {
 
     }
 
-    private User(String username, String email, String passwordHash) {
+    private User(String username, String email) {
         this.username = username;
         this.email = email;
-        this.passwordHash = passwordHash;
         this.active = true;
     }
 
-    public static User create(String username, String email, String passwordHash) {
-        return new User(username, email, passwordHash);
+    public static User create(String username, String email) {
+        return new User(username, email);
     }
 
     public void deactivate() {
@@ -63,10 +59,6 @@ public class User {
 
     public String getEmail() {
         return email;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
     }
 
     public boolean isActive() {

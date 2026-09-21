@@ -11,11 +11,17 @@ public class UserProfile {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "full_name", nullable = false)
-    private String fullName;
+    @Column(name = "first_name", nullable = false)
+    private String firstName;
+
+    @Column(name = "last_name", nullable = false)
+    private String lastName;
 
     @Column(nullable = false)
     private String phone;
+
+    @Column
+    private String city;
 
     @Column(name = "birth_date", nullable = false)
     private LocalDate birthDate;
@@ -28,27 +34,39 @@ public class UserProfile {
 
     }
 
-    private UserProfile(String fullName, String phone, LocalDate birthDate, User user) {
-        this.fullName = fullName;
+    private UserProfile(String firstName, String lastName, String phone, String city,
+                        LocalDate birthDate, User user) {
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.phone = phone;
+        this.city = city;
         this.birthDate = birthDate;
         this.user = user;
     }
 
-    public static UserProfile create(String fullName, String phone, LocalDate birthDate, User user) {
-        return new UserProfile(fullName, phone, birthDate, user);
+    public static UserProfile create(String firstName, String lastName, String phone, String city,
+                                     LocalDate birthDate, User user) {
+        return new UserProfile(firstName, lastName, phone, city, birthDate, user);
     }
 
     public Long getId() {
         return id;
     }
 
-    public String getFullName() {
-        return fullName;
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
     }
 
     public String getPhone() {
         return phone;
+    }
+
+    public String getCity() {
+        return city;
     }
 
     public LocalDate getBirthDate() {
@@ -58,5 +76,4 @@ public class UserProfile {
     public User getUser() {
         return user;
     }
-
 }

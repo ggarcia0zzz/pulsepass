@@ -21,6 +21,9 @@ public class Artist {
     @Column(nullable = false)
     private String country;
 
+    @Column(nullable = false)
+    private boolean active;
+
     @ManyToMany(mappedBy = "artists")
     private Set<Event> events = new HashSet<>();
 
@@ -32,10 +35,15 @@ public class Artist {
         this.stageName = stageName;
         this.genre = genre;
         this.country = country;
+        this.active = true;
     }
 
     public static Artist create(String stageName, String genre, String country) {
         return new Artist(stageName, genre, country);
+    }
+
+    public void deactivate() {
+        this.active = false;
     }
 
     public Long getId() {
@@ -52,6 +60,10 @@ public class Artist {
 
     public String getCountry() {
         return country;
+    }
+
+    public boolean isActive() {
+        return active;
     }
 
     public Set<Event> getEvents() {

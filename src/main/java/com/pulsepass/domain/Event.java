@@ -21,6 +21,9 @@ public class Event {
     @Column(nullable = false)
     private String name;
 
+    @Column(length = 1000)
+    private String description;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EventCategory category;
@@ -31,6 +34,9 @@ public class Event {
 
     @Column(name = "event_date", nullable = false)
     private LocalDateTime eventDate;
+
+    @Column(name = "minimum_age", nullable = false)
+    private Integer minimumAge;
 
     @Column(name = "streaming_url", length = 500)
     private String streamingUrl;
@@ -51,18 +57,21 @@ public class Event {
 
     }
 
-    private Event(String eventCode, String name, EventCategory category, LocalDateTime eventDate, Venue venue) {
+    private Event(String eventCode, String name, String description, EventCategory category,
+                  LocalDateTime eventDate, Integer minimumAge, Venue venue) {
         this.eventCode = eventCode;
         this.name = name;
+        this.description = description;
         this.category = category;
         this.eventDate = eventDate;
+        this.minimumAge = minimumAge;
         this.venue = venue;
         this.status = EventStatus.DRAFT;
     }
 
-    public static Event create(String eventCode, String name, EventCategory category,
-                               LocalDateTime eventDate, Venue venue) {
-        return new Event(eventCode, name, category, eventDate, venue);
+    public static Event create(String eventCode, String name, String description, EventCategory category,
+                               LocalDateTime eventDate, Integer minimumAge, Venue venue) {
+        return new Event(eventCode, name, description, category, eventDate, minimumAge, venue);
     }
 
     public void publish() {
@@ -94,6 +103,10 @@ public class Event {
         return name;
     }
 
+    public String getDescription() {
+        return description;
+    }
+
     public EventCategory getCategory() {
         return category;
     }
@@ -104,6 +117,10 @@ public class Event {
 
     public LocalDateTime getEventDate() {
         return eventDate;
+    }
+
+    public Integer getMinimumAge() {
+        return minimumAge;
     }
 
     public String getStreamingUrl() {
