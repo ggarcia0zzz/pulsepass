@@ -9,4 +9,5 @@ public interface ArtistRepository extends JpaRepository<Artist, Long> {
 
     // FR-ART-001 / FR-ART-002: recuperar un artista por su nombre artístico
     Optional<Artist> findByStageName(String stageName);
+    boolean existsByStageName(String stageName);
 }

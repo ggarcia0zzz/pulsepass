@@ -9,4 +9,6 @@ public interface VenueRepository extends JpaRepository<Venue, Long> {
 
     // FR-VEN-001: recuperar un venue por su código de negocio
     Optional<Venue> findByCode(String code);
+
+    boolean existsByCode(String code);
 }
