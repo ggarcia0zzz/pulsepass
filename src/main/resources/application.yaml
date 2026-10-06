@@ -12,3 +12,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+pulsepass:
+  ticket:
+    # Precio base de un ticket GENERAL; el resto de tipos aplica un multiplicador (TicketPriceCalculator)
+    base-price: 100000.00

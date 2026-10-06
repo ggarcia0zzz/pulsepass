@@ -1,36 +1,23 @@
 package com.pulsepass.service;
 
-import com.pulsepass.dto.AssignArtistDto;
-import com.pulsepass.dto.ChangeEventStatusDto;
-import com.pulsepass.dto.CreateEventDto;
-import com.pulsepass.dto.EventDto;
-import com.pulsepass.dto.SetStreamingUrlDto;
+import com.pulsepass.dto.request.CreateEventRequest;
+import com.pulsepass.dto.response.EventResponse;
+import com.pulsepass.dto.response.EventSummaryResponse;
 import jakarta.validation.Valid;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 public interface EventService {
 
-    EventDto create(@Valid CreateEventDto request);
+    EventResponse create(@Valid CreateEventRequest request);
 
-    EventDto findById(Long id);
+    EventResponse findByCode(String eventCode);
 
-    EventDto findByEventCode(String eventCode);
+    List<EventSummaryResponse> findPublishedEvents();
 
-    List<EventDto> findPublished();
+    EventResponse publish(String eventCode);
 
-    List<EventDto> findByVenue(String venueCode);
+    EventResponse addArtist(String eventCode, Long artistId);
 
-    List<EventDto> findByArtist(String stageName);
-
-    List<EventDto> findByCityAndArtist(String city, String stageName);
-
-    List<EventDto> findRecommended(LocalDateTime after, String city, String artistText);
-
-    EventDto assignArtist(Long eventId, @Valid AssignArtistDto request);
-
-    EventDto changeStatus(Long eventId, @Valid ChangeEventStatusDto request);
-
-    EventDto setStreamingUrl(Long eventId, @Valid SetStreamingUrlDto request);
+    List<EventSummaryResponse> findByArtist(String stageName);
 }

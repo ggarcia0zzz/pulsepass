@@ -1,7 +1,7 @@
 package com.pulsepass.mapper;
 
 import com.pulsepass.domain.Ticket;
-import com.pulsepass.dto.TicketDto;
+import com.pulsepass.dto.response.TicketResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
@@ -11,5 +11,6 @@ public interface TicketMapper {
 
     @Mapping(target = "userEmail", source = "user.email")
     @Mapping(target = "eventCode", source = "event.eventCode")
-    TicketDto toDto(Ticket ticket);
+    @Mapping(target = "eventName", source = "event.name")
+    TicketResponse toResponse(Ticket ticket);
 }

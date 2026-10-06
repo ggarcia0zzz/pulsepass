@@ -1,6 +1,6 @@
-package com.pulsepass.dto;
+package com.pulsepass.dto.response;
 
-public record ArtistDto(
+public record ArtistResponse(
         Long id,
         String stageName,
         String genre,

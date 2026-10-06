@@ -1,22 +1,23 @@
 package com.pulsepass.mapper;
 
-import com.pulsepass.domain.Artist;
 import com.pulsepass.domain.Event;
-import com.pulsepass.dto.EventDto;
+import com.pulsepass.dto.response.EventResponse;
+import com.pulsepass.dto.response.EventSummaryResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
 
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
+@Mapper(
+        componentModel = MappingConstants.ComponentModel.SPRING,
+        uses = ArtistMapper.class
+)
 public interface EventMapper {
 
     @Mapping(target = "venueCode", source = "venue.code")
     @Mapping(target = "venueName", source = "venue.name")
-    @Mapping(target = "artistStageNames", source = "artists")
-    EventDto toDto(Event event);
+    EventResponse toResponse(Event event);
 
-    // usado por MapStruct para convertir cada elemento de Set<Artist> a String
-    default String artistToStageName(Artist artist) {
-        return artist.getStageName();
-    }
+    @Mapping(target = "venueCode", source = "venue.code")
+    @Mapping(target = "venueName", source = "venue.name")
+    EventSummaryResponse toSummary(Event event);
 }

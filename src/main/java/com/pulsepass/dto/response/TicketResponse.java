@@ -1,4 +1,4 @@
-package com.pulsepass.dto;
+package com.pulsepass.dto.response;
 
 import com.pulsepass.domain.enums.TicketStatus;
 import com.pulsepass.domain.enums.TicketType;
@@ -6,14 +6,15 @@ import com.pulsepass.domain.enums.TicketType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-public record TicketDto(
+public record TicketResponse(
         Long id,
         String ticketCode,
         TicketType type,
-        TicketStatus status,
         BigDecimal price,
+        TicketStatus status,
         LocalDateTime purchaseDate,
         String userEmail,
-        String eventCode
+        String eventCode,
+        String eventName
 ) {
 }

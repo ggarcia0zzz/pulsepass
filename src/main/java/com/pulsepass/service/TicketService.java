@@ -1,34 +1,22 @@
 package com.pulsepass.service;
 
-import com.pulsepass.domain.enums.TicketStatus;
-import com.pulsepass.dto.IssueTicketDto;
-import com.pulsepass.dto.TicketDto;
+import com.pulsepass.dto.request.PurchaseTicketRequest;
+import com.pulsepass.dto.response.TicketResponse;
 import jakarta.validation.Valid;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 public interface TicketService {
 
-    TicketDto issue(@Valid IssueTicketDto request);
+    TicketResponse purchase(@Valid PurchaseTicketRequest request);
 
-    TicketDto pay(Long ticketId);
+    TicketResponse findByCode(String ticketCode);
 
-    TicketDto cancel(Long ticketId);
+    List<TicketResponse> findByUserEmail(String email);
 
-    TicketDto markUsed(Long ticketId);
+    List<TicketResponse> findPaidTicketsByEvent(String eventCode);
 
-    TicketDto findById(Long id);
+    TicketResponse cancel(String ticketCode);
 
-    TicketDto findByTicketCode(String ticketCode);
-
-    List<TicketDto> findByUserEmail(String email);
-
-    List<TicketDto> findByUserEmailAndStatus(String email, TicketStatus status);
-
-    List<TicketDto> findPaidByEvent(String eventCode);
-
-    long countPaidByEvent(String eventCode);
-
-    List<TicketDto> findByEventDateAfter(LocalDateTime after);
+    TicketResponse markAsUsed(String ticketCode);
 }

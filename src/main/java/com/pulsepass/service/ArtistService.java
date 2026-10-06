@@ -1,20 +1,14 @@
 package com.pulsepass.service;
 
-import com.pulsepass.dto.ArtistDto;
-import com.pulsepass.dto.RegisterArtistDto;
-import jakarta.validation.Valid;
+import com.pulsepass.dto.response.ArtistResponse;
 
 import java.util.List;
 
 public interface ArtistService {
 
-    ArtistDto register(@Valid RegisterArtistDto request);
+    ArtistResponse findById(Long id);
 
-    ArtistDto findById(Long id);
+    ArtistResponse findByStageName(String stageName);
 
-    ArtistDto findByStageName(String stageName);
-
-    List<ArtistDto> findAll();
-
-    ArtistDto deactivate(Long id);
+    List<ArtistResponse> findActiveArtists();
 }

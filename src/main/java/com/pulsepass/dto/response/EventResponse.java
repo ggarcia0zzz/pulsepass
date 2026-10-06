@@ -1,4 +1,4 @@
-package com.pulsepass.dto;
+package com.pulsepass.dto.response;
 
 import com.pulsepass.domain.enums.EventCategory;
 import com.pulsepass.domain.enums.EventStatus;
@@ -6,7 +6,7 @@ import com.pulsepass.domain.enums.EventStatus;
 import java.time.LocalDateTime;
 import java.util.Set;
 
-public record EventDto(
+public record EventResponse(
         Long id,
         String eventCode,
         String name,
@@ -18,6 +18,6 @@ public record EventDto(
         String streamingUrl,
         String venueCode,
         String venueName,
-        Set<String> artistStageNames
+        Set<ArtistResponse> artists
 ) {
 }

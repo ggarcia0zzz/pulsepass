@@ -1,6 +1,6 @@
-package com.pulsepass.dto;
+package com.pulsepass.dto.response;
 
-public record VenueDto(
+public record VenueResponse(
         Long id,
         String code,
         String name,
