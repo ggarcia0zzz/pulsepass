@@ -77,4 +77,25 @@ class EventArtistIT extends IntegrationTestBase {
                 .collect(Collectors.toSet());
         assertEquals(Set.of("EVT-001", "EVT-002"), eventCodes);
     }
+
+    /** FR-SVC-009: busqueda por nombre artistico sin distinguir mayusculas (artistas cargados por V2). */
+    @Test
+    void buscaArtistaPorNombreIgnorandoMayusculas() {
+        Artist found = artistRepository.findByStageNameIgnoreCase("solar BEAT").orElseThrow();
+
+        assertEquals("Solar Beat", found.getStageName());
+    }
+
+    /** BR-ARTIST-002 (capa de servicios): solo artistas activos, ordenados por nombre artistico. */
+    @Test
+    void listaSoloLosArtistasActivosOrdenadosPorNombre() {
+        artist("Ocean Drive").deactivate();
+        flushAndClear();
+
+        java.util.List<String> names = artistRepository.findByActiveTrueOrderByStageNameAsc().stream()
+                .map(Artist::getStageName)
+                .toList();
+
+        assertEquals(java.util.List.of("Caribbean Sound", "Digital Pulse", "Neon Waves", "Solar Beat"), names);
+    }
 }

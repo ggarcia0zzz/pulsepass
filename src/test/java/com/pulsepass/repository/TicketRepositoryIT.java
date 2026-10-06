@@ -158,4 +158,21 @@ class TicketRepositoryIT extends IntegrationTestBase {
         assertEquals("TCK-0102", codes.get(0));
         assertFalse(codes.contains("TCK-0101"));
     }
+
+    /** FR-SVC-015: tickets de un usuario por email (sin distinguir mayusculas), el mas reciente primero. */
+    @Test
+    void consultaTicketsDeUnUsuarioIgnorandoMayusculasYMasRecientePrimero() {
+        User andrea = userRepository.findByEmailIgnoreCase("andrea@example.com").orElseThrow();
+        Event event = eventRepository.findByEventCode("CMF-2026").orElseThrow();
+        ticketRepository.saveAndFlush(Ticket.create("TCK-0005", TicketType.GENERAL, TicketStatus.PAID,
+                new BigDecimal("120000"), LocalDateTime.now().plusDays(1), andrea, event));
+        flushAndClear();
+
+        List<String> codes = ticketRepository.findByUserEmailIgnoreCaseOrderByPurchaseDateDesc("ANDREA@Example.com")
+                .stream()
+                .map(Ticket::getTicketCode)
+                .toList();
+
+        assertEquals(List.of("TCK-0005", "TCK-0001"), codes);
+    }
 }

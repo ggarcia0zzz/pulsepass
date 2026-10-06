@@ -2,6 +2,7 @@ package com.pulsepass.domain;
 
 import com.pulsepass.domain.enums.TicketStatus;
 import com.pulsepass.domain.enums.TicketType;
+import com.pulsepass.exception.InvalidStatusTransitionException;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -57,6 +58,25 @@ public class Ticket {
     public static Ticket create(String ticketCode, TicketType type, TicketStatus status, BigDecimal price,
                                 LocalDateTime purchaseDate, User user, Event event) {
         return new Ticket(ticketCode, type, status, price, purchaseDate, user, event);
+    }
+
+    public void changeStatus(TicketStatus newStatus) {
+        if (!status.canTransitionTo(newStatus)) {
+            throw new InvalidStatusTransitionException(status, newStatus);
+        }
+        this.status = newStatus;
+    }
+
+    public void pay() {
+        changeStatus(TicketStatus.PAID);
+    }
+
+    public void cancel() {
+        changeStatus(TicketStatus.CANCELLED);
+    }
+
+    public void markUsed() {
+        changeStatus(TicketStatus.USED);
     }
 
     public Long getId() {
