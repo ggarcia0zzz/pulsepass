@@ -1,6 +1,10 @@
 # PulsePass
 
-Plataforma de eventos, artistas y entradas. Caso de estudio académico enfocado en la **capa de persistencia**: modelo relacional, migraciones Flyway, entidades JPA, repositories Spring Data, consultas y pruebas de integración contra PostgreSQL real.
+Plataforma de eventos, artistas y entradas. Caso de estudio académico con tres capas implementadas:
+
+1. **Persistencia**: modelo relacional, migraciones Flyway, entidades JPA, repositories Spring Data, consultas y pruebas de integración contra PostgreSQL real.
+2. **Servicios**: reglas de negocio, transacciones, DTOs `record`, MapStruct y excepciones de dominio, con pruebas unitarias (JUnit 5, Mockito, AssertJ) que no necesitan base de datos.
+3. **Controladores REST**: API HTTP sobre los Services, validación con Bean Validation, manejo global de errores (`@RestControllerAdvice`) y pruebas aisladas con `@WebMvcTest` + `MockMvc`.
 
 ## Tecnologías
 
@@ -8,7 +12,9 @@ Plataforma de eventos, artistas y entradas. Caso de estudio académico enfocado 
 - Spring Boot 4 (Spring Data JPA / Hibernate)
 - PostgreSQL
 - Flyway (único responsable del esquema)
-- Testcontainers (PostgreSQL real en las pruebas, sin H2)
+- Testcontainers (PostgreSQL real en las pruebas de repository, sin H2)
+- MapStruct (Entity → DTO)
+- JUnit 5, Mockito y AssertJ (pruebas unitarias de Service)
 - Maven
 
 ## Requisitos
@@ -44,7 +50,7 @@ Los enums (`EventCategory`, `EventStatus`, `TicketType`, `TicketStatus`) se guar
 - `Event` y `Artist` se relacionan N:M mediante la tabla `event_artists`, con clave primaria compuesta `(event_id, artist_id)` que impide repetir un par.
 - Los precios usan `BigDecimal` / `NUMERIC(10,2)`, nunca `float` ni `double`.
 - Las reglas críticas (unicidad, FKs, rangos) se refuerzan en PostgreSQL con `UNIQUE`, `FOREIGN KEY` y `CHECK`, no solo en Java.
-- `SOLD_OUT` no se calcula automáticamente en este MVP.
+- `SOLD_OUT` lo actualiza la capa de servicios: la compra que completa la capacidad del venue cambia el evento a `SOLD_OUT` en la misma transacción.
 
 ## Migraciones Flyway
 
@@ -78,9 +84,38 @@ Todos extienden `JpaRepository`. Las consultas simples usan Query Methods; las q
 | `TicketRepository` | `countByEventCodeAndStatus` | JPQL con COUNT | FR-TKT-008 |
 | `TicketRepository` | `findByEventDateAfter` | JPQL con JOIN y orden | FR-SRC-004 |
 
+## Capa de servicios
+
+Frontera entre las futuras capas de exposición (controllers) y el modelo persistente. Los contratos públicos **nunca devuelven entidades JPA**: reciben `record` de `dto.request` y retornan `record` de `dto.response`, mapeados con MapStruct.
+
+```
+Controller (futuro) → Service (interfaz) → ServiceImpl → Repository / Mapper / reglas de negocio → Entity → PostgreSQL
+```
+
+| Servicio | Operaciones | Reglas |
+|---|---|---|
+| `VenueService` | `findByCode`, `findActiveVenues` | BR-VENUE-001..002 |
+| `ArtistService` | `findById`, `findByStageName`, `findActiveArtists` | BR-ARTIST-001..002 |
+| `EventService` | `create`, `findByCode`, `findPublishedEvents`, `publish`, `addArtist`, `findByArtist` | BR-EVENT-001..011 |
+| `UserService` | `register` (User + UserProfile), `findByEmail`, `findByUsername` | BR-USER-001..005 |
+| `TicketService` | `purchase`, `findByCode`, `findByUserEmail`, `findPaidTicketsByEvent`, `cancel`, `markAsUsed` | BR-TICKET-001..014 |
+
+**Decisiones de diseño**
+
+- Inyección por constructor con dependencias `final`; interfaz en `service/`, implementación en `service/impl/`.
+- Escrituras con `@Transactional`; lecturas con `@Transactional(readOnly = true)` (por defecto en la clase, las escrituras lo sobrescriben).
+- Tres excepciones: `ResourceNotFoundException` (el recurso no existe), `DuplicateResourceException` (conflicto de unicidad) y `BusinessRuleException` (el recurso existe pero la operación no es válida).
+- Los DTO de request solo llevan validación estructural (`@NotBlank`, `@NotNull`, `@Size`). Las reglas de negocio (fecha futura, edad mínima, etc.) están en el Service y lanzan `BusinessRuleException`.
+- El reloj (`Clock`) se inyecta: en producción es el real y en los tests es fijo, así las reglas de fecha y edad son deterministas.
+- **Precio**: el cliente nunca lo envía. `TicketPriceCalculator` lo calcula con `BigDecimal` (GENERAL = base, STUDENT = 0,60 × base, VIP = 2,5 × base, BACKSTAGE = 5 × base). La base se configura con `pulsepass.ticket.base-price` (por defecto 100000.00). El código del ticket lo genera `TicketCodeGenerator`.
+- **Compra atómica**: valida usuario, evento, estado, fecha, edad (calculada **a la fecha del evento**) y capacidad (`paidTickets < venue.capacity`); crea el ticket `PAID` y, si completa la capacidad, pasa el evento a `SOLD_OUT`. Cualquier fallo hace rollback.
+- Si el evento exige edad mínima y el usuario no tiene perfil (sin fecha de nacimiento), la compra se rechaza.
+
+**Limitación conocida (PRD, sección 53)**: contar tickets y luego guardar no es seguro ante compras concurrentes. Una versión de producción necesitaría locking optimista/pesimista o restricciones en la base de datos. Además, la capacidad cuenta solo tickets `PAID`: un ticket que pasa a `USED` libera su cupo.
+
 ## Pruebas
 
-Las pruebas de integración usan PostgreSQL real con Testcontainers. Flyway construye el esquema y luego se ejecutan los repositories. Cada prueba corre en una transacción que se revierte al terminar.
+**Repositories (integración)**: usan PostgreSQL real con Testcontainers. Flyway construye el esquema y luego se ejecutan los repositories. Cada prueba corre en una transacción que se revierte al terminar.
 
 | Clase | Cubre |
 |---|---|
@@ -92,9 +127,67 @@ Las pruebas de integración usan PostgreSQL real con Testcontainers. Flyway cons
 | `TicketRepositoryIT` | Ticket → User y Event, ventas PAID, restricciones UNIQUE, CHECK y FK |
 | `EventSearchIT` | Búsquedas por artista, ciudad y eventos recomendados |
 
+**Servicios (unitarias)**: `@ExtendWith(MockitoExtension.class)`, Service real con Repository y Mapper simulados. No usan `@SpringBootTest`, ni PostgreSQL, ni Docker. Cada prueba sigue ARRANGE / ACT / ASSERT y usa `when`, `verify`, `verify(..., never())`, `any()` y `eq()`.
+
+| Clase | Cubre |
+|---|---|
+| `VenueServiceImplTest` | BR-VENUE-001..002 |
+| `ArtistServiceImplTest` | BR-ARTIST-001..002 |
+| `EventServiceImplTest` | TEST-EVENT-001..008, BR-EVENT-001..011 |
+| `UserServiceImplTest` | TEST-USER-001..004, BR-USER-001..005 |
+| `TicketServiceImplTest` | TEST-TICKET-001..012, escenario de aceptación AC-004..AC-011 |
+| `TicketPriceCalculatorTest` | Estrategia de precios, BR-TICKET-009 |
+
+## Capa de controladores (API REST)
+
+Los controllers son delgados: validan la entrada (`@Valid`), delegan en el Service y devuelven `ResponseEntity<DTO>`. No usan repositories, no exponen entidades y no tienen `try/catch`; todos los errores salen por `GlobalExceptionHandler` con el contrato `ErrorResponse`.
+
+| Método | Endpoint | Éxito |
+|---|---|---|
+| GET | `/api/venues/{code}` | 200 |
+| GET | `/api/venues/active` | 200 |
+| POST | `/api/events` | 201 |
+| GET | `/api/events/{eventCode}` | 200 |
+| GET | `/api/events/published` | 200 |
+| PATCH | `/api/events/{eventCode}/publish` | 200 |
+| POST | `/api/events/{eventCode}/artists/{artistId}` | 200 |
+| GET | `/api/events/by-artist?stageName=...` | 200 |
+| GET | `/api/events/{eventCode}/tickets/paid` | 200 |
+| GET | `/api/artists/{id}` | 200 |
+| GET | `/api/artists/by-stage-name?stageName=...` | 200 |
+| GET | `/api/artists/active` | 200 |
+| POST | `/api/users` | 201 |
+| GET | `/api/users/by-email?email=...` | 200 |
+| GET | `/api/users/by-username?username=...` | 200 |
+| POST | `/api/tickets` | 201 |
+| GET | `/api/tickets/{ticketCode}` | 200 |
+| GET | `/api/tickets/by-user?email=...` | 200 |
+| PATCH | `/api/tickets/{ticketCode}/cancel` | 200 |
+| PATCH | `/api/tickets/{ticketCode}/use` | 200 |
+
+**Errores**
+
+| Condición | HTTP |
+|---|---|
+| Bean Validation / JSON mal formado / parámetro faltante | 400 |
+| `ResourceNotFoundException` | 404 |
+| `DuplicateResourceException`, `BusinessRuleException` (incluye transiciones inválidas) | 409 |
+| Excepción inesperada (mensaje genérico, el detalle solo va al log) | 500 |
+
+```json
+{ "timestamp": "2026-10-04T20:00:00", "status": 400, "error": "Bad Request",
+  "message": "Validation failed", "details": { "eventCode": "Event code is required" } }
+```
+
+**Pruebas de controller**: `src/test/java/com/pulsepass/controller/*ControllerTest.java`. Usan `@WebMvcTest`, `MockMvc` y `@MockitoBean` para los Services: no levantan PostgreSQL ni Testcontainers. Para correr solo estas:
+
+```bash
+./mvnw test -Dtest='*ControllerTest'
+```
+
 ## Cómo ejecutar
 
-Con Docker abierto, desde la raíz del proyecto:
+Con Docker abierto (las pruebas de repository lo necesitan; las de Service no), desde la raíz del proyecto:
 
 ```bash
 # Windows
@@ -117,6 +210,13 @@ src/main/java/com/pulsepass/
   domain/          entidades JPA
   domain/enums/    EventCategory, EventStatus, TicketType, TicketStatus
   repository/      repositories Spring Data
+  dto/request/     CreateEventRequest, RegisterUserRequest, PurchaseTicketRequest
+  dto/response/    VenueResponse, EventResponse, EventSummaryResponse, ArtistResponse, UserResponse, TicketResponse
+  mapper/          mappers MapStruct (Entity → DTO)
+  exception/       ResourceNotFoundException, DuplicateResourceException, BusinessRuleException
+  service/         interfaces de servicio
+  service/impl/    implementaciones @Service
+  service/pricing/ TicketPriceCalculator, TicketCodeGenerator
 src/main/resources/
   application.yaml
   db/migration/    V1, V2, V3
@@ -124,4 +224,6 @@ src/test/java/com/pulsepass/
   IntegrationTestBase.java
   migration/       FlywayMigrationIT
   repository/      pruebas de repositories
+  service/impl/    pruebas unitarias de Service (Mockito)
+  service/pricing/ prueba de TicketPriceCalculator
 ```

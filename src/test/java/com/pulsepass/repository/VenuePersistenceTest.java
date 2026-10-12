@@ -55,4 +55,20 @@ class VenuePersistenceTest extends IntegrationTestBase {
         assertThrows(DataIntegrityViolationException.class,
                 () -> venueRepository.saveAndFlush(venue));
     }
+
+    /** BR-VENUE-002 (capa de servicios): solo venues activos, ordenados por nombre. */
+    @Test
+    void listaSoloLosVenuesActivosOrdenadosPorNombre() {
+        venueRepository.saveAndFlush(Venue.create("VEN-B", "B Venue", "Santa Marta", "Cra 1", 100));
+        venueRepository.saveAndFlush(Venue.create("VEN-A", "A Venue", "Santa Marta", "Cra 2", 100));
+        Venue closed = venueRepository.saveAndFlush(Venue.create("VEN-C", "C Venue", "Santa Marta", "Cra 3", 100));
+        closed.deactivate();
+        flushAndClear();
+
+        java.util.List<String> codes = venueRepository.findByActiveTrueOrderByNameAsc().stream()
+                .map(Venue::getCode)
+                .toList();
+
+        assertEquals(java.util.List.of("VEN-A", "VEN-B"), codes);
+    }
 }
