@@ -1,9 +1,10 @@
 # PulsePass
 
-Plataforma de eventos, artistas y entradas. Caso de estudio académico con dos capas implementadas:
+Plataforma de eventos, artistas y entradas. Caso de estudio académico con tres capas implementadas:
 
 1. **Persistencia**: modelo relacional, migraciones Flyway, entidades JPA, repositories Spring Data, consultas y pruebas de integración contra PostgreSQL real.
 2. **Servicios**: reglas de negocio, transacciones, DTOs `record`, MapStruct y excepciones de dominio, con pruebas unitarias (JUnit 5, Mockito, AssertJ) que no necesitan base de datos.
+3. **Controladores REST**: API HTTP sobre los Services, validación con Bean Validation, manejo global de errores (`@RestControllerAdvice`) y pruebas aisladas con `@WebMvcTest` + `MockMvc`.
 
 ## Tecnologías
 
@@ -136,6 +137,53 @@ Controller (futuro) → Service (interfaz) → ServiceImpl → Repository / Mapp
 | `UserServiceImplTest` | TEST-USER-001..004, BR-USER-001..005 |
 | `TicketServiceImplTest` | TEST-TICKET-001..012, escenario de aceptación AC-004..AC-011 |
 | `TicketPriceCalculatorTest` | Estrategia de precios, BR-TICKET-009 |
+
+## Capa de controladores (API REST)
+
+Los controllers son delgados: validan la entrada (`@Valid`), delegan en el Service y devuelven `ResponseEntity<DTO>`. No usan repositories, no exponen entidades y no tienen `try/catch`; todos los errores salen por `GlobalExceptionHandler` con el contrato `ErrorResponse`.
+
+| Método | Endpoint | Éxito |
+|---|---|---|
+| GET | `/api/venues/{code}` | 200 |
+| GET | `/api/venues/active` | 200 |
+| POST | `/api/events` | 201 |
+| GET | `/api/events/{eventCode}` | 200 |
+| GET | `/api/events/published` | 200 |
+| PATCH | `/api/events/{eventCode}/publish` | 200 |
+| POST | `/api/events/{eventCode}/artists/{artistId}` | 200 |
+| GET | `/api/events/by-artist?stageName=...` | 200 |
+| GET | `/api/events/{eventCode}/tickets/paid` | 200 |
+| GET | `/api/artists/{id}` | 200 |
+| GET | `/api/artists/by-stage-name?stageName=...` | 200 |
+| GET | `/api/artists/active` | 200 |
+| POST | `/api/users` | 201 |
+| GET | `/api/users/by-email?email=...` | 200 |
+| GET | `/api/users/by-username?username=...` | 200 |
+| POST | `/api/tickets` | 201 |
+| GET | `/api/tickets/{ticketCode}` | 200 |
+| GET | `/api/tickets/by-user?email=...` | 200 |
+| PATCH | `/api/tickets/{ticketCode}/cancel` | 200 |
+| PATCH | `/api/tickets/{ticketCode}/use` | 200 |
+
+**Errores**
+
+| Condición | HTTP |
+|---|---|
+| Bean Validation / JSON mal formado / parámetro faltante | 400 |
+| `ResourceNotFoundException` | 404 |
+| `DuplicateResourceException`, `BusinessRuleException` (incluye transiciones inválidas) | 409 |
+| Excepción inesperada (mensaje genérico, el detalle solo va al log) | 500 |
+
+```json
+{ "timestamp": "2026-10-04T20:00:00", "status": 400, "error": "Bad Request",
+  "message": "Validation failed", "details": { "eventCode": "Event code is required" } }
+```
+
+**Pruebas de controller**: `src/test/java/com/pulsepass/controller/*ControllerTest.java`. Usan `@WebMvcTest`, `MockMvc` y `@MockitoBean` para los Services: no levantan PostgreSQL ni Testcontainers. Para correr solo estas:
+
+```bash
+./mvnw test -Dtest='*ControllerTest'
+```
 
 ## Cómo ejecutar
 

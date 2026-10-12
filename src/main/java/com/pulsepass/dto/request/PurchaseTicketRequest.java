@@ -1,16 +1,17 @@
 package com.pulsepass.dto.request;
 
 import com.pulsepass.domain.enums.TicketType;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 /** El precio NO viaja en el request: lo calcula el sistema (TicketPriceCalculator). */
 public record PurchaseTicketRequest(
 
-        @NotBlank String userEmail,
+        @NotBlank(message = "User email is required") @Email(message = "User email must be valid") String userEmail,
 
-        @NotBlank String eventCode,
+        @NotBlank(message = "Event code is required") String eventCode,
 
-        @NotNull TicketType type
+        @NotNull(message = "Ticket type is required") TicketType type
 ) {
 }
