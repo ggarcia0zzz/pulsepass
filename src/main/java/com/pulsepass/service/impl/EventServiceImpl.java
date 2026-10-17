@@ -14,6 +14,7 @@ import com.pulsepass.mapper.EventMapper;
 import com.pulsepass.repository.ArtistRepository;
 import com.pulsepass.repository.EventRepository;
 import com.pulsepass.repository.VenueRepository;
+import com.pulsepass.service.AuthorizationService;
 import com.pulsepass.service.EventService;
 import com.pulsepass.shared.TextNormalizer;
 import org.springframework.stereotype.Service;
@@ -33,17 +34,20 @@ public class EventServiceImpl implements EventService {
     private final VenueRepository venueRepository;
     private final ArtistRepository artistRepository;
     private final EventMapper eventMapper;
+    private final AuthorizationService authorizationService;
     private final Clock clock;
 
     public EventServiceImpl(EventRepository eventRepository,
                             VenueRepository venueRepository,
                             ArtistRepository artistRepository,
                             EventMapper eventMapper,
+                            AuthorizationService authorizationService,
                             Clock clock) {
         this.eventRepository = eventRepository;
         this.venueRepository = venueRepository;
         this.artistRepository = artistRepository;
         this.eventMapper = eventMapper;
+        this.authorizationService = authorizationService;
         this.clock = clock;
     }
 
@@ -96,7 +100,14 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public EventResponse findByCode(String eventCode) {
-        return eventMapper.toResponse(findEvent(eventCode));
+        Event event = findEvent(eventCode);
+
+        // Fase 4: un evento no publicado solo lo ven STAFF/ADMIN. Para el resto se responde 404
+        // (idéntico a "no existe") para no revelar la existencia de borradores.
+        if (!authorizationService.canViewEvent(event.getStatus())) {
+            throw new ResourceNotFoundException("Event", event.getEventCode());
+        }
+        return eventMapper.toResponse(event);
     }
 
     @Override
@@ -175,6 +186,8 @@ public class EventServiceImpl implements EventService {
         return eventRepository
                 .findByArtistStageName(TextNormalizer.text(stageName))
                 .stream()
+                // Fase 4: los no publicados solo se incluyen para STAFF/ADMIN
+                .filter(event -> authorizationService.canViewEvent(event.getStatus()))
                 .map(eventMapper::toSummary)
                 .toList();
     }

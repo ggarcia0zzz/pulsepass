@@ -3,9 +3,16 @@ package com.pulsepass.exception;
 import com.pulsepass.dto.response.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -55,6 +62,33 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return build(HttpStatus.BAD_REQUEST,
                 "Invalid value for parameter: " + ex.getName(), Map.of());
+    }
+
+    // ---------- 401 / 403 (Fase 4) ----------
+    // Deben declararse ANTES del catch-all Exception.class de abajo: sin estos handlers una
+    // AccessDeniedException lanzada por @PreAuthorize terminaría convertida en un 500.
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex) {
+        // Mensaje genérico: no revela si el usuario existe ni por qué falló el token.
+        String message = ex instanceof BadCredentialsException ? "Credenciales inválidas" : "Autenticación requerida";
+        ErrorResponse body = new ErrorResponse(LocalDateTime.now(), HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase(), message, Map.of());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .body(body);
+    }
+
+    /** Incluye AuthorizationDeniedException (@PreAuthorize). Anónimo -> 401; autenticado sin permiso -> 403. */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication instanceof AnonymousAuthenticationToken) {
+            return handleAuthentication(new org.springframework.security.authentication
+                    .InsufficientAuthenticationException("Authentication required"));
+        }
+        log.warn("Access denied for user {}", authentication.getName());
+        return build(HttpStatus.FORBIDDEN, "No tiene permisos para realizar esta operación", Map.of());
     }
 
     // ---------- 404 ----------

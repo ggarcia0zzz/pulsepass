@@ -52,4 +52,12 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
             ORDER BY e.eventDate ASC
             """)
     List<Ticket> findByEventDateAfter(@Param("after") LocalDateTime after);
+
+    // Fase 4 (anti-IDOR): ID del propietario de un ticket, sin cargar la entidad ni sus relaciones LAZY
+    @Query("""
+            SELECT t.user.id
+            FROM Ticket t
+            WHERE t.ticketCode = :ticketCode
+            """)
+    Optional<Long> findOwnerIdByTicketCode(@Param("ticketCode") String ticketCode);
 }

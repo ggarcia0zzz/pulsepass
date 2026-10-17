@@ -1,10 +1,11 @@
 # PulsePass
 
-Plataforma de eventos, artistas y entradas. Caso de estudio académico con tres capas implementadas:
+Plataforma de eventos, artistas y entradas. Caso de estudio académico con cuatro capas implementadas:
 
 1. **Persistencia**: modelo relacional, migraciones Flyway, entidades JPA, repositories Spring Data, consultas y pruebas de integración contra PostgreSQL real.
 2. **Servicios**: reglas de negocio, transacciones, DTOs `record`, MapStruct y excepciones de dominio, con pruebas unitarias (JUnit 5, Mockito, AssertJ) que no necesitan base de datos.
 3. **Controladores REST**: API HTTP sobre los Services, validación con Bean Validation, manejo global de errores (`@RestControllerAdvice`) y pruebas aisladas con `@WebMvcTest` + `MockMvc`.
+4. **Seguridad**: autenticación con credenciales (BCrypt), JWT firmado con JJWT (HS256), autorización por rol y por propiedad con Spring Security, API stateless. Ver la sección [Seguridad](#seguridad-fase-4).
 
 ## Tecnologías
 
@@ -61,6 +62,7 @@ Ubicadas en `src/main/resources/db/migration`. Una base vacía se reconstruye ej
 | `V1__create_schema.sql` | Crea `venues`, `events`, `artists`, `event_artists`, `users`, `user_profiles` y `tickets` con PK, FK, UNIQUE, CHECK e índices |
 | `V2__insert_initial_artists.sql` | Inserta los artistas iniciales: Solar Beat, Neon Waves, Caribbean Sound, Ocean Drive y Digital Pulse |
 | `V3__add_streaming_url_to_event.sql` | Agrega `streaming_url VARCHAR(500)` nullable a `events` |
+| `V4__security_credentials_roles.sql` | Crea `user_credentials` (hash BCrypt, 1:1 con `users`) y `user_roles` (PK `(user_id, role)`, CHECK USER/STAFF/ADMIN). Los usuarios existentes reciben solo `USER` y **no** reciben contraseña |
 
 `spring.jpa.hibernate.ddl-auto=validate`: Hibernate solo valida el esquema, nunca lo crea ni lo modifica.
 
@@ -227,3 +229,85 @@ src/test/java/com/pulsepass/
   service/impl/    pruebas unitarias de Service (Mockito)
   service/pricing/ prueba de TicketPriceCalculator
 ```
+
+## Seguridad (Fase 4)
+
+### Variables de entorno
+
+Copia `.env.example` a `.env` (está en `.gitignore`) y exporta las variables antes de arrancar.
+
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `PULSEPASS_JWT_SECRET_BASE64` | **Sí** | Base64 de al menos 32 bytes aleatorios. Genera una con `openssl rand -base64 48`. Si falta o es débil, la app **no arranca**. |
+| `PULSEPASS_JWT_ISSUER` | No | Emisor del token (por defecto `pulsepass-api`). |
+| `PULSEPASS_JWT_ACCESS_TTL` | No | Vigencia del token de acceso (por defecto `PT15M`, 900 s). |
+| `PULSEPASS_CORS_ALLOWED_ORIGINS` | No | Orígenes permitidos, separados por comas. Vacío = ninguno. |
+| `PULSEPASS_BOOTSTRAP_ADMIN_PASSWORD` / `PULSEPASS_BOOTSTRAP_STAFF_PASSWORD` | Solo en `dev` | Contraseña (mín. 12 caracteres) de las cuentas locales `admin` y `staff`. Sin contraseña no se crea la cuenta. |
+
+Cuentas de prueba locales (solo con `SPRING_PROFILES_ACTIVE=dev`):
+
+```bash
+export PULSEPASS_JWT_SECRET_BASE64=$(openssl rand -base64 48)
+export PULSEPASS_BOOTSTRAP_ADMIN_PASSWORD='UnaFraseLargaParaAdmin2026!'
+export PULSEPASS_BOOTSTRAP_STAFF_PASSWORD='UnaFraseLargaParaStaff2026!'
+SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
+```
+
+### Flujo
+
+```
+POST /api/users        -> registro (201, rol USER, sin token)
+POST /api/auth/login   -> {"accessToken": "...", "tokenType": "Bearer", "expiresIn": 900}
+GET  /api/...          -> Authorization: Bearer <accessToken>
+GET  /api/auth/me      -> identidad mínima del principal
+```
+
+`POST /api/users` ahora exige `password` (12+ caracteres, máx. 72 bytes). Nunca se devuelve ni el hash ni la contraseña.
+
+### Matriz de autorización de los 20 endpoints
+
+| Endpoint | Acceso |
+|---|---|
+| `GET /api/venues/{code}`, `GET /api/venues/active` | Público |
+| `GET /api/artists/{id}`, `/by-stage-name`, `/active` | Público |
+| `GET /api/events/published` | Público |
+| `GET /api/events/{eventCode}`, `GET /api/events/by-artist` | Público **solo si el evento está publicado**; STAFF/ADMIN ven todos. Un borrador responde 404 a los demás |
+| `POST /api/events`, `PATCH /api/events/{code}/publish`, `POST /api/events/{code}/artists/{id}` | ADMIN |
+| `POST /api/users` | Público (rol inicial siempre USER) |
+| `GET /api/users/by-email`, `/by-username` | El propio usuario o ADMIN |
+| `POST /api/tickets` | USER; `userEmail` debe pertenecer al principal |
+| `GET /api/tickets/{ticketCode}` | Propietario, STAFF o ADMIN |
+| `GET /api/tickets/by-user` | Propietario o ADMIN |
+| `PATCH /api/tickets/{ticketCode}/cancel` | Propietario o ADMIN (más la regla de negocio del Service) |
+| `PATCH /api/tickets/{ticketCode}/use`, `GET /api/events/{code}/tickets/paid` | STAFF o ADMIN |
+| `POST /api/auth/login` | Público |
+| `GET /api/auth/me` | Autenticado |
+
+Todo lo no declarado exige autenticación (denegar por defecto).
+
+### Decisiones y limitaciones del MVP
+
+- **Roles aditivos**: un usuario puede tener varios (p. ej. USER + STAFF). Los roles y el estado activo se vuelven a leer de la base de datos en **cada** request; un token no conserva privilegios tras revocar un rol ni tras desactivar la cuenta.
+- **Ticket ajeno**: para un USER, un ticket ajeno y uno inexistente responden igual (**403**), para no permitir enumeración. STAFF/ADMIN reciben 404 si no existe.
+- **Eventos no publicados**: solo `PUBLISHED` es público (constante `PUBLIC_EVENT_STATUSES` en `AuthorizationService`; añade `SOLD_OUT` ahí si quieres que sea visible).
+- **STAFF es global** en `use` y `tickets/paid`: el dominio aún no asigna personal a eventos. Debe restringirse en producción.
+- **Sin revocación instantánea**: no hay denylist; el logout del cliente no invalida el token (vive 15 min).
+- **Fuera del MVP (brechas para producción)**: límite de intentos de login / fuerza bruta, rotación de claves, gestor de secretos, refresh tokens, MFA, recuperación de contraseña. Usar siempre HTTPS fuera de localhost.
+- **Usuarios legados** (anteriores a V4) no tienen contraseña: no pueden iniciar sesión hasta una activación segura.
+
+### Pruebas de seguridad
+
+```bash
+./mvnw test                          # unitarias + MockMvc con filtros reales (no requiere Docker)
+./mvnw verify                        # incluye los *IT con PostgreSQL (Testcontainers, requiere Docker)
+```
+
+| Prueba | Cubre |
+|---|---|
+| `JwtServiceTest` | firma, claims, expiración, issuer, manipulación, alg=none, algoritmo inesperado, clave débil |
+| `JwtAuthenticationFilterTest` | sin Bearer, válido, inválido, doble encabezado, usuario inactivo |
+| `AuthServiceImplTest`, `CustomUserDetailsServiceTest`, `AuthorizationServiceTest` | login, registro atómico, propiedad, roles |
+| `SecurityRulesTest` | matriz HTTP por rol (anónimo / USER / STAFF / ADMIN) |
+| `AuthControllerTest` | login, 401 genérico, `/me` |
+| `SecurityMatrixIT` | flujo completo contra PostgreSQL: IDOR, borradores, usuario inactivo, rol revocado |
+| `SecurityPersistenceIT`, `FlywayMigrationIT` | migración V4, PK compuesta, CHECK, FK |
