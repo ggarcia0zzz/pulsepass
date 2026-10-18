@@ -30,14 +30,14 @@ class FlywayMigrationIT extends IntegrationTestBase {
     private String ddlAuto;
 
     @Test
-    void flywayAplicaV1V2yV3DesdeUnaBaseVacia() {
+    void flywayAplicaV1aV4DesdeUnaBaseVacia() {
         MigrationInfo[] applied = flyway.info().applied();
 
         List<String> versions = Arrays.stream(applied)
                 .map(migration -> migration.getVersion().getVersion())
                 .toList();
 
-        assertEquals(List.of("1", "2", "3"), versions);
+        assertEquals(List.of("1", "2", "3", "4"), versions);
         for (MigrationInfo migration : applied) {
             assertEquals(MigrationState.SUCCESS, migration.getState());
         }
