@@ -15,6 +15,7 @@ import com.pulsepass.mapper.EventMapper;
 import com.pulsepass.repository.ArtistRepository;
 import com.pulsepass.repository.EventRepository;
 import com.pulsepass.repository.VenueRepository;
+import com.pulsepass.service.AuthorizationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,11 +60,15 @@ class EventServiceImplTest {
     @Mock
     private EventMapper eventMapper;
 
+    @Mock
+    private AuthorizationService authorizationService;
+
     private EventServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new EventServiceImpl(eventRepository, venueRepository, artistRepository, eventMapper, CLOCK);
+        service = new EventServiceImpl(eventRepository, venueRepository, artistRepository, eventMapper,
+                authorizationService, CLOCK);
     }
 
     // ---------- helpers ----------
@@ -94,6 +99,7 @@ class EventServiceImplTest {
         Event event = draftEvent(activeVenue(), FUTURE_DATE);
         EventResponse expected = response(EventStatus.DRAFT);
         when(eventRepository.findByEventCode("CMF-2026")).thenReturn(Optional.of(event));
+        when(authorizationService.canViewEvent(EventStatus.DRAFT)).thenReturn(true); // Fase 4: STAFF/ADMIN
         when(eventMapper.toResponse(event)).thenReturn(expected);
 
         // ACT
@@ -114,6 +120,32 @@ class EventServiceImplTest {
                 .hasMessage("Event not found: CMF-2026");
 
         verifyNoInteractions(eventMapper);
+    }
+
+    @Test
+    void findByCode_draftEventWithoutPermission_isHiddenAsNotFound() {
+        // Fase 4: un borrador no se revela a anónimos ni a USER (404 idéntico a "no existe")
+        Event event = draftEvent(activeVenue(), FUTURE_DATE);
+        when(eventRepository.findByEventCode("CMF-2026")).thenReturn(Optional.of(event));
+        when(authorizationService.canViewEvent(EventStatus.DRAFT)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.findByCode("CMF-2026"))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Event not found: CMF-2026");
+
+        verifyNoInteractions(eventMapper);
+    }
+
+    @Test
+    void findByCode_publishedEvent_isVisibleToEveryone() {
+        Event event = draftEvent(activeVenue(), FUTURE_DATE);
+        event.publish();
+        EventResponse expected = response(EventStatus.PUBLISHED);
+        when(eventRepository.findByEventCode("CMF-2026")).thenReturn(Optional.of(event));
+        when(authorizationService.canViewEvent(EventStatus.PUBLISHED)).thenReturn(true);
+        when(eventMapper.toResponse(event)).thenReturn(expected);
+
+        assertThat(service.findByCode("CMF-2026")).isEqualTo(expected);
     }
 
     // ---------- create ----------
@@ -257,6 +289,7 @@ class EventServiceImplTest {
         EventSummaryResponse summary = new EventSummaryResponse(1L, "CMF-2026", "Caribbean Music Fest 2026",
                 EventCategory.MUSIC, EventStatus.PUBLISHED, FUTURE_DATE, "VEN-SMR-01", "Marina Convention Center");
         when(eventRepository.findByArtistStageName("Solar Beat")).thenReturn(List.of(event));
+        when(authorizationService.canViewEvent(any())).thenReturn(true); // Fase 4: STAFF/ADMIN
         when(eventMapper.toSummary(event)).thenReturn(summary);
 
         // ACT
@@ -264,6 +297,18 @@ class EventServiceImplTest {
 
         // ASSERT
         assertThat(result).containsExactly(summary);
+    }
+
+    @Test
+    void findByArtist_withoutPermission_hidesNonPublishedEvents() {
+        // Fase 4: un anónimo/USER solo ve los eventos publicados del artista
+        Event draft = draftEvent(activeVenue(), FUTURE_DATE);
+        when(eventRepository.findByArtistStageName("Solar Beat")).thenReturn(List.of(draft));
+        when(authorizationService.canViewEvent(EventStatus.DRAFT)).thenReturn(false);
+
+        assertThat(service.findByArtist("Solar Beat")).isEmpty();
+
+        verifyNoInteractions(eventMapper);
     }
 
     // ---------- publish ----------

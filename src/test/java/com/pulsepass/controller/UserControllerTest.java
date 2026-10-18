@@ -4,6 +4,7 @@ import com.pulsepass.dto.request.RegisterUserRequest;
 import com.pulsepass.dto.response.UserResponse;
 import com.pulsepass.exception.DuplicateResourceException;
 import com.pulsepass.exception.ResourceNotFoundException;
+import com.pulsepass.service.AuthService;
 import com.pulsepass.service.UserService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,13 +27,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(UserController.class)
-class UserControllerTest {
+class UserControllerTest extends SecuredControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
     private UserService userService;
+
+    // Fase 4: el registro pasa por AuthService (usuario + credencial + rol en una transacción)
+    @MockitoBean
+    private AuthService authService;
 
     private static final String VALID_BODY = """
             {
@@ -42,7 +47,8 @@ class UserControllerTest {
               "lastName": "Gomez",
               "phone": "3001234567",
               "city": "Santa Marta",
-              "birthDate": "1995-05-10"
+              "birthDate": "1995-05-10",
+              "password": "UnaFraseSeguraLarga2026!"
             }
             """;
 
@@ -54,7 +60,7 @@ class UserControllerTest {
     @Test
     @DisplayName("TEST-CTRL-USR-001 registrar valido -> 201")
     void register_valid_returns201() throws Exception {
-        when(userService.register(any(RegisterUserRequest.class))).thenReturn(andrea());
+        when(authService.register(any(RegisterUserRequest.class))).thenReturn(andrea());
 
         mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -66,7 +72,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.active").value(true))
                 .andExpect(jsonPath("$.birthDate").value("1995-05-10"));
 
-        verify(userService).register(any(RegisterUserRequest.class));
+        verify(authService).register(any(RegisterUserRequest.class));
     }
 
     @Test
@@ -82,7 +88,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.message").value("Validation failed"))
                 .andExpect(jsonPath("$.details.email").value("Email must be valid"));
 
-        verify(userService, never()).register(any());
+        verify(authService, never()).register(any());
     }
 
     @Test
@@ -95,13 +101,13 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.details.username").value("Username is required"))
                 .andExpect(jsonPath("$.details.birthDate").value("Birth date is required"));
 
-        verify(userService, never()).register(any());
+        verify(authService, never()).register(any());
     }
 
     @Test
     @DisplayName("TEST-CTRL-USR-003 username duplicado -> 409")
     void register_duplicate_returns409() throws Exception {
-        when(userService.register(any(RegisterUserRequest.class)))
+        when(authService.register(any(RegisterUserRequest.class)))
                 .thenThrow(new DuplicateResourceException("User", "username", "andrea"));
 
         mockMvc.perform(post("/api/users")
@@ -156,5 +162,32 @@ class UserControllerTest {
 
         mockMvc.perform(get("/api/users/by-username").param("username", "nadie"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Fase 4: contraseña de menos de 12 caracteres -> 400 sin invocar AuthService")
+    void register_shortPassword_returns400() throws Exception {
+        String body = VALID_BODY.replace("UnaFraseSeguraLarga2026!", "corta");
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.password").value("Password must be at least 12 characters"));
+
+        verify(authService, never()).register(any());
+    }
+
+    @Test
+    @DisplayName("Fase 4: la respuesta del registro nunca incluye contraseña ni hash")
+    void register_response_doesNotExposePassword() throws Exception {
+        when(authService.register(any(RegisterUserRequest.class))).thenReturn(andrea());
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_BODY))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.password").doesNotExist())
+                .andExpect(jsonPath("$.passwordHash").doesNotExist());
     }
 }

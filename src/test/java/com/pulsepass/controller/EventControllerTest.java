@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(EventController.class)
-class EventControllerTest {
+class EventControllerTest extends SecuredControllerTest {
 
     private static final LocalDateTime DATE = LocalDateTime.of(2026, 12, 20, 20, 0);
 
