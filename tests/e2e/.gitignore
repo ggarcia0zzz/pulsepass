@@ -1,0 +1,15 @@
+# Tests E2E manuales: nada sensible al repositorio
+# Ambientes exportados desde Postman con valores reales (tokens, contraseñas)
+*.local.postman_environment.json
+*-secrets*.json
+PulsePass-local.postman_environment.local.json
+
+# Evidencias (capturas) y bitácoras diligenciadas con datos de una sesión real
+evidencia/
+evidence/
+*.png
+*.jpg
+registro-ejecucion-manual.diligenciado.md
+
+# Variables de entorno locales
+.env
