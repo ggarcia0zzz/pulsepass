@@ -218,8 +218,8 @@ Marca cada casilla **solo después** de enviar la solicitud, inspeccionar Status
 
 ## Fase 8 — Cierre
 
-- [ ] Cada una de las 22 rutas tiene al menos un caso nominal ejecutado (ver `matriz-cobertura-22-rutas.md`)
-- [ ] Los casos omitidos o dependientes de un fallo están marcados BLOCKED / NOT RUN, nunca PASS
-- [ ] Consolidación por módulo completada en `registro-ejecucion-manual.md`
-- [ ] Defectos registrados con precondiciones, pasos, HTTP esperado/observado
-- [ ] Variables y capturas **sin** tokens ni contraseñas antes de entregar o exportar
+- [x] Cada una de las 22 rutas tiene al menos un caso nominal ejecutado (ver `matriz-cobertura-22-rutas.md`)
+- [x] Los casos omitidos o dependientes de un fallo están marcados BLOCKED / NOT RUN, nunca PASS
+- [x] Consolidación por módulo completada en `registro-ejecucion-manual.md`
+- [x] Defectos registrados con precondiciones, pasos, HTTP esperado/observado
+- [x] Variables y capturas **sin** tokens ni contraseñas antes de entregar o exportar
