@@ -12,4 +12,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // FR-USR-001 / FR-USR-002: buscar usuario por username
     Optional<User> findByUsername(String username);
+
+    boolean existsByUsername(String username);
+
+    boolean existsByEmailIgnoreCase(String email);
 }

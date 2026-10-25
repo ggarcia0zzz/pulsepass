@@ -2,6 +2,7 @@ package com.pulsepass.domain;
 
 import com.pulsepass.domain.enums.EventCategory;
 import com.pulsepass.domain.enums.EventStatus;
+import com.pulsepass.exception.InvalidStatusTransitionException;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -74,12 +75,27 @@ public class Event {
         return new Event(eventCode, name, description, category, eventDate, minimumAge, venue);
     }
 
+    public void changeStatus(EventStatus newStatus) {
+        if (!status.canTransitionTo(newStatus)) {
+            throw new InvalidStatusTransitionException(status, newStatus);
+        }
+        this.status = newStatus;
+    }
+
     public void publish() {
-        this.status = EventStatus.PUBLISHED;
+        changeStatus(EventStatus.PUBLISHED);
+    }
+
+    public void markSoldOut() {
+        changeStatus(EventStatus.SOLD_OUT);
+    }
+
+    public void finish() {
+        changeStatus(EventStatus.FINISHED);
     }
 
     public void cancel() {
-        this.status = EventStatus.CANCELLED;
+        changeStatus(EventStatus.CANCELLED);
     }
 
     public void addArtist(Artist artist) {
