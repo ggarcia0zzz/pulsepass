@@ -9,6 +9,9 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
+import java.util.Collection;
 
 public interface EventRepository extends JpaRepository<Event, Long> {
 
@@ -60,4 +63,12 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     List<Event> findRecommended(@Param("after") LocalDateTime after,
                                 @Param("city") String city,
                                 @Param("artistText") String artistText);
+
+    // Cartelera publica: varios estados, por fecha ascendente
+    List<Event> findByStatusInOrderByEventDateAsc(Collection<EventStatus> statuses);
+
+    // Bloquea la fila del evento mientras se valida el aforo y se crea el ticket
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM Event e WHERE e.eventCode = :eventCode")
+    Optional<Event> findByEventCodeForUpdate(@Param("eventCode") String eventCode);
 }

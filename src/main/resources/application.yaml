@@ -2,13 +2,23 @@ spring:
   application:
     name: pulsepass
   datasource:
-    url: jdbc:postgresql://localhost:5432/pulsepass
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pulsepass}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: true
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+pulsepass:
+  security:
+    jwt:
+      # Obligatoria: clave aleatoria de >= 32 bytes en Base64. Sin ella la app no arranca.
+      # Generar con:  openssl rand -base64 48
+      secret-base64: ${PULSEPASS_JWT_SECRET_BASE64}
+      issuer: pulsepass-api
+      expiration-seconds: 900

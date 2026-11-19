@@ -59,6 +59,14 @@ public class Ticket {
         return new Ticket(ticketCode, type, status, price, purchaseDate, user, event);
     }
 
+    public void cancel() {
+        this.status = TicketStatus.CANCELLED;
+    }
+
+    public void markUsed() {
+        this.status = TicketStatus.USED;
+    }
+
     public Long getId() {
         return id;
     }

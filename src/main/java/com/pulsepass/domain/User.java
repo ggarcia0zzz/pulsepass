@@ -1,5 +1,6 @@
 package com.pulsepass.domain;
 
+import com.pulsepass.domain.enums.UserRole;
 import jakarta.persistence.*;
 
 import java.util.ArrayList;
@@ -21,6 +22,13 @@ public class User {
     @Column(nullable = false)
     private boolean active;
 
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role = UserRole.USER;
+
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, optional = true)
     private UserProfile profile;
 
@@ -41,6 +49,13 @@ public class User {
         return new User(username, email);
     }
 
+    /** Alta por registro publico: siempre con rol USER. */
+    public static User register(String username, String email, String passwordHash) {
+        User user = new User(username, email);
+        user.passwordHash = passwordHash;
+        return user;
+    }
+
     public void deactivate() {
         this.active = false;
     }
@@ -59,6 +74,14 @@ public class User {
 
     public String getEmail() {
         return email;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public UserRole getRole() {
+        return role;
     }
 
     public boolean isActive() {

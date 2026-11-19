@@ -17,7 +17,7 @@ public class UserProfile {
     @Column(name = "last_name", nullable = false)
     private String lastName;
 
-    @Column(nullable = false)
+    @Column
     private String phone;
 
     @Column

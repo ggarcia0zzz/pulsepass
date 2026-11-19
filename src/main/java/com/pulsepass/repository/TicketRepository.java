@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
@@ -46,4 +47,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
             ORDER BY e.eventDate ASC
             """)
     List<Ticket> findByEventDateAfter(@Param("after") LocalDateTime after);
+
+    // Aforo: tickets que ocupan un cupo (no cancelados)
+    long countByEvent_EventCodeAndStatusIn(String eventCode, Collection<TicketStatus> statuses);
 }
