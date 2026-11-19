@@ -22,6 +22,9 @@ public class EventController {
     @ResponseStatus(HttpStatus.CREATED)
     public EventResponse create(@Valid @RequestBody EventCreateRequest request) { return service.create(request); }
 
+    @GetMapping
+    public List<EventResponse> all() { return service.listAll(); }
+
     @GetMapping("/published")
     public List<EventResponse> published() { return service.listPublished(); }
 

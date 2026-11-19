@@ -61,6 +61,13 @@ public class EventService {
                 .stream().map(EventResponse::from).toList();
     }
 
+    /** Listado administrativo de todos los estados. SecurityConfig exige ADMIN. */
+    @Transactional(readOnly = true)
+    public List<EventResponse> listAll() {
+        return events.findAll(org.springframework.data.domain.Sort.by("eventDate").ascending())
+                .stream().map(EventResponse::from).toList();
+    }
+
     public EventResponse publish(String eventCode) {
         Event event = events.findByEventCode(eventCode).orElseThrow(() -> new NotFoundException("Evento no encontrado"));
         if (event.getStatus() != EventStatus.DRAFT) throw new ConflictException("Solo se puede publicar un evento en borrador");

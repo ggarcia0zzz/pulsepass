@@ -42,6 +42,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/users").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/venues/**", "/api/artists/**").permitAll()
                 // Solo ADMIN
+                .requestMatchers(HttpMethod.GET, "/api/events").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/events").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PATCH, "/api/events/*/publish").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/events/*/artists/*").hasRole("ADMIN")
